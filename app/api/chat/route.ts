@@ -1,40 +1,26 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { Configuration, OpenAIApi } from 'openai-edge'
+import { OpenAIStream, StreamingTextResponse } from 'ai'
 
-export const maxDuration = 30;
+const config = new Configuration({
+  apiKey: "exemplo"
+})
 
-const companyInfo = `
-Endereço: Q. 303 Sul, AV LO 09, Lote 29-A, Sala 16
-Fundação: 2017, mas desde 2008 trabalhamos no ramo
-Site: romãocorretora.com.br
-Midias: @romaocorretora
-Telefones para contato: 63984429244, 63984412856
-Horário de atendimento: 24 horas
-Bio: A Romão Corretora trabalha com todas as grandes seguradoras que atuam no Brasil, nas mais diferentes áreas se importando com o bem estar do cliente para o deixar seguro.
-`;
+const openai = new OpenAIApi(config)
+
+export const runtime = 'edge'
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
 
-  const contextMessage = `
-    **Importante:** Por favor, limite suas perguntas a tópicos relacionados à Romão Corretora e ao ramo de corretagem de seguros.
+  const { messages } = await req.json()
 
-    Para saber mais sobre a empresa, acesse nosso site: romãocorretora.com.br
-  `;
+  const response = await openai.createChatCompletion({
+    model: 'gpt-3.5-turbo',
+    stream: true,
+    messages
+  })
 
-  messages.push({
-    role: 'user',
-    content: contextMessage,
-  });
+  const stream = OpenAIStream(response)
 
-  const lastMessage = messages[messages.length - 1].content;
-  const messageWithContext = `${lastMessage}\n\n[Contexto da empresa:\n${companyInfo}]`;
-  messages[messages.length - 1].content = messageWithContext;
-
-  const result = await streamText({
-    model: openai('gpt-3.5-turbo'),
-    messages,
-  });
-
-  return result.toAIStreamResponse();
+  return new StreamingTextResponse(stream)
+  
 }
